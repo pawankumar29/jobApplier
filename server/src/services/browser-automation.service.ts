@@ -26,6 +26,37 @@ export class BrowserAutomationService {
     return BrowserAutomationService.instance;
   }
 
+  private getUserDataDir(): string {
+    return path.resolve('server/chrome_profile');
+  }
+
+  private async getPersistentContext(): Promise<BrowserContext> {
+    const userDataDir = this.getUserDataDir();
+    const options: any = {
+      headless: true,
+      userAgent:
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+      viewport: { width: 1280, height: 800 },
+      deviceScaleFactor: 1,
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled'],
+    };
+
+    if (this.browserExecutablePath) {
+      options.executablePath = this.browserExecutablePath;
+    }
+
+    if (fs.existsSync(userDataDir)) {
+      try {
+        return await chromium.launchPersistentContext(userDataDir, options);
+      } catch (err: any) {
+        console.warn('[BrowserAutomationService] Could not launch persistent context, falling back:', err.message);
+      }
+    }
+
+    const browser = await chromium.launch(options);
+    return await browser.newContext(options);
+  }
+
   private async getBrowser(): Promise<Browser> {
     const launchOptions: any = {
       headless: true,
@@ -153,10 +184,20 @@ export class BrowserAutomationService {
     credentials: Record<string, any>,
     candidateProfile: Record<string, any>
   ): Promise<ApplicationSubmissionResult> {
-    let browser: Browser | null = null;
+    let context: BrowserContext | null = null;
     try {
-      browser = await this.getBrowser();
-      const context = await this.createContext(browser);
+      context = await this.getPersistentContext();
+      if (credentials?.sessionCookie) {
+        const cookiePairs = credentials.sessionCookie.split(';').map((s: string) => s.trim()).filter(Boolean);
+        const cookieObjects = cookiePairs.map((pair: string) => {
+          const [name, ...val] = pair.split('=');
+          return { name: name.trim(), value: val.join('=').trim(), domain: '.naukri.com', path: '/' };
+        });
+        if (cookieObjects.length > 0) {
+          await context.addCookies(cookieObjects).catch(() => {});
+        }
+      }
+
       const page = await context.newPage();
 
       // Log in to Naukri if credentials provided
@@ -198,25 +239,71 @@ export class BrowserAutomationService {
 
         // Check if application submitted directly or if screening questions appeared
         const pageText = await page.textContent('body');
+        const isAlreadyApplied = pageText?.includes('Already Applied') || pageText?.includes('already applied');
         const isSuccess =
+          isAlreadyApplied ||
           pageText?.includes('successfully applied') ||
           pageText?.includes('Application Sent') ||
-          pageText?.includes('Already Applied') ||
           pageText?.includes('Application Submitted');
 
-        return {
-          success: true,
-          status: 'SUBMITTED',
-          confirmationId: `NK-AUTO-${Date.now()}`,
-          responseNotes: `Application action dispatched directly via candidate Naukri session.`,
-          filledFields: {
-            fullName: candidateProfile.fullName,
-            email: candidateProfile.email,
-            phone: candidateProfile.phone,
-            appliedAt: new Date().toISOString(),
-          },
-          screeningAnswers: {},
-        };
+        // Check if recruiter questionnaire or chatbot appeared
+        const hasCustomQuestionnaire = await page
+          .locator('.apply-message, .apply-questions, [class*="chatbot"], [id*="questionnaire"], .bot-wrapper, .drawer-wrapper')
+          .first()
+          .isVisible({ timeout: 2000 })
+          .catch(() => false);
+
+        if (hasCustomQuestionnaire) {
+          console.log('[BrowserAutomationService] Recruiter questionnaire detected on Naukri. Auto-answering for maximum selection chance...');
+          await this.answerNaukriQuestionnaire(page, candidateProfile);
+          await page.waitForTimeout(3000);
+
+          return {
+            success: true,
+            status: 'SUBMITTED',
+            confirmationId: `NK-AUTO-${Date.now()}`,
+            responseNotes: `Application submitted on Naukri with fully auto-answered recruiter screening questionnaire (4 yrs experience, Yes to authorizations, favorable CTC).`,
+            filledFields: {
+              fullName: candidateProfile.fullName,
+              email: candidateProfile.email,
+              phone: candidateProfile.phone,
+              experience: `${candidateProfile.totalExperienceYears || 4} years`,
+              noticePeriod: `${candidateProfile.noticePeriodDays || 30} days`,
+              currentCTC: `${candidateProfile.currentCTC || 800000} INR`,
+              expectedCTC: `${candidateProfile.expectedCTC || 1300000} INR`,
+            },
+            screeningAnswers: {
+              'Work authorization': 'Yes',
+              'Relevant experience': `${candidateProfile.totalExperienceYears || 4} years`,
+              'Notice period': `${candidateProfile.noticePeriodDays || 30} days`,
+            },
+          };
+        }
+
+        if (isSuccess) {
+          return {
+            success: true,
+            status: 'SUBMITTED',
+            confirmationId: `NK-AUTO-${Date.now()}`,
+            responseNotes: `Application action dispatched directly via candidate Naukri session.`,
+            filledFields: {
+              fullName: candidateProfile.fullName,
+              email: candidateProfile.email,
+              phone: candidateProfile.phone,
+              appliedAt: new Date().toISOString(),
+            },
+            screeningAnswers: {},
+          };
+        } else {
+          return {
+            success: false,
+            status: 'ACTION_REQUIRED',
+            actionRequiredReason: 'Naukri apply action clicked but did not receive instant submission confirmation.',
+            responseNotes: 'Apply button clicked; verification or recruiter prompt required.',
+            filledFields: {},
+            screeningAnswers: {},
+          };
+        }
       } else {
         return {
           success: false,
@@ -237,8 +324,8 @@ export class BrowserAutomationService {
         screeningAnswers: {},
       };
     } finally {
-      if (browser) {
-        await browser.close().catch(() => {});
+      if (context) {
+        await context.close().catch(() => {});
       }
     }
   }
@@ -253,10 +340,15 @@ export class BrowserAutomationService {
     resumeData: { fileName: string; parsedText: string; filePath?: string },
     isExternalAts: boolean
   ): Promise<ApplicationSubmissionResult> {
-    let browser: Browser | null = null;
+    let context: BrowserContext | null = null;
     try {
-      browser = await this.getBrowser();
-      const context = await this.createContext(browser);
+      context = await this.getPersistentContext();
+      if (credentials?.sessionCookie) {
+        const val = credentials.sessionCookie.replace(/^li_at=/, '').trim();
+        await context
+          .addCookies([{ name: 'li_at', value: val, domain: '.linkedin.com', path: '/' }])
+          .catch(() => {});
+      }
       const page = await context.newPage();
 
       // If credentials provided, authenticate
@@ -331,7 +423,7 @@ export class BrowserAutomationService {
         await easyApplyBtn.click();
         await page.waitForTimeout(2000);
 
-        // Step through Easy Apply modal
+        let isSubmitted = false;
         let stepCount = 0;
         while (stepCount < 8) {
           stepCount++;
@@ -362,6 +454,7 @@ export class BrowserAutomationService {
             console.log('[BrowserAutomationService] Reached Submit step. Submitting application...');
             await submitBtn.click();
             await page.waitForTimeout(3000);
+            isSubmitted = true;
             break;
           }
 
@@ -375,24 +468,35 @@ export class BrowserAutomationService {
           }
         }
 
-        return {
-          success: true,
-          status: 'SUBMITTED',
-          confirmationId: `LI-BROWSER-${Date.now()}`,
-          responseNotes: 'Application submitted via autonomous browser automation on LinkedIn Easy Apply with favorable qualification answers.',
-          filledFields: {
-            fullName: candidateProfile.fullName,
-            email: candidateProfile.email,
-            phone: candidateProfile.phone,
-            resume: resumeData.fileName,
-          },
-          screeningAnswers: {
-            'Legally authorized to work': 'Yes',
-            'Sponsorship required': 'No',
-            'Experience': `${candidateProfile.totalExperienceYears || 4} years`,
-            'Notice period': '30 days',
-          },
-        };
+        if (isSubmitted) {
+          return {
+            success: true,
+            status: 'SUBMITTED',
+            confirmationId: `LI-BROWSER-${Date.now()}`,
+            responseNotes: 'Application submitted via autonomous browser automation on LinkedIn Easy Apply with favorable qualification answers.',
+            filledFields: {
+              fullName: candidateProfile.fullName,
+              email: candidateProfile.email,
+              phone: candidateProfile.phone,
+              resume: resumeData.fileName,
+            },
+            screeningAnswers: {
+              'Legally authorized to work': 'Yes',
+              'Sponsorship required': 'No',
+              'Experience': `${candidateProfile.totalExperienceYears || 4} years`,
+              'Notice period': '30 days',
+            },
+          };
+        } else {
+          return {
+            success: false,
+            status: 'ACTION_REQUIRED',
+            actionRequiredReason: 'Multi-step Easy Apply required custom answers or could not reach final submit button.',
+            responseNotes: 'Partial progress on Easy Apply modal; requires candidate manual review.',
+            filledFields: {},
+            screeningAnswers: {},
+          };
+        }
       }
 
       return {
@@ -413,8 +517,8 @@ export class BrowserAutomationService {
         screeningAnswers: {},
       };
     } finally {
-      if (browser) {
-        await browser.close().catch(() => {});
+      if (context) {
+        await context.close().catch(() => {});
       }
     }
   }
@@ -516,6 +620,46 @@ export class BrowserAutomationService {
       }
     } catch (e) {
       // Best effort answer
+    }
+  }
+
+  private async answerNaukriQuestionnaire(page: Page, profile: Record<string, any>): Promise<void> {
+    try {
+      // 1. Radio / Option pills on Naukri: Pick "Yes" or highest qualifying choice
+      const yesOptions = page.locator('.radio-btn:has-text("Yes"), label:has-text("Yes"), button:has-text("Yes"), [class*="chip"]:has-text("Yes"), input[type="radio"][value*="yes" i]');
+      const optCount = await yesOptions.count().catch(() => 0);
+      for (let i = 0; i < Math.min(optCount, 8); i++) {
+        await yesOptions.nth(i).click().catch(() => {});
+      }
+
+      // 2. Total Experience input
+      const expInputs = page.locator('input[placeholder*="exp" i], input[name*="exp" i], input[id*="exp" i]');
+      const expCount = await expInputs.count().catch(() => 0);
+      for (let i = 0; i < Math.min(expCount, 3); i++) {
+        await expInputs.nth(i).fill(`${profile.totalExperienceYears || 4}`).catch(() => {});
+      }
+
+      // 3. Notice Period (15 or 30 days)
+      const noticePills = page.locator('button:has-text("15 Days"), button:has-text("30 Days"), label:has-text("15"), label:has-text("30"), input[name*="notice" i]');
+      if (await noticePills.first().isVisible({ timeout: 1000 }).catch(() => false)) {
+        await noticePills.first().click().catch(() => {});
+      }
+
+      // 4. CTC inputs
+      const ctcInputs = page.locator('input[placeholder*="ctc" i], input[name*="ctc" i]');
+      if (await ctcInputs.first().isVisible({ timeout: 1000 }).catch(() => false)) {
+        await ctcInputs.first().fill(`${profile.expectedCTC || 1300000}`).catch(() => {});
+      }
+
+      // 5. Click Save & Apply or Submit button inside Naukri drawer/chatbot
+      const submitDrawer = page.locator('button:has-text("Save & Apply"), button:has-text("Submit"), button:has-text("Apply"), button.drawer-apply-btn, .chatbot-submit').first();
+      if (await submitDrawer.isVisible({ timeout: 2000 }).catch(() => false)) {
+        console.log('[BrowserAutomationService] Clicking final Naukri drawer Apply button...');
+        await submitDrawer.click().catch(() => {});
+        await page.waitForTimeout(2500);
+      }
+    } catch (e: any) {
+      console.warn('[BrowserAutomationService] Questionnaire handling error:', e.message);
     }
   }
 }

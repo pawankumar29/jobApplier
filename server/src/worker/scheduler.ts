@@ -41,7 +41,7 @@ export class AutonomousWorkerDaemon {
       } finally {
         this.scheduleNextTick();
       }
-    }, 15000); // 15-second cycle for snappy responsiveness
+    }, 6000); // Fast 6-second cycle for rapid real-time job processing
   }
 
   async runAutomationCycle(): Promise<void> {
@@ -295,7 +295,7 @@ export class AutonomousWorkerDaemon {
       const isUnlimited = !maxApps || maxApps <= 0 || maxApps >= 99999;
 
       // Process batch of jobs per tick for fast responsiveness
-      const batchLimit = 3;
+      const batchLimit = 5;
       for (let b = 0; b < batchLimit; b++) {
         if (!isUnlimited && config.dailyApplicationsCount >= maxApps) {
           console.log(`[AutonomousWorkerDaemon] Daily limit reached (${config.dailyApplicationsCount}) for user ${user.id}`);
@@ -304,9 +304,14 @@ export class AutonomousWorkerDaemon {
 
         let queueItem = jobPriorityQueue.dequeue();
         if (!queueItem) {
-          // Hydrate from DB: grab pending QUEUED jobs ordered by latest postedAt first
+          // Hydrate from DB: strictly grab freshest QUEUED jobs ordered by latest postedAt first
+          // Focus exclusively on jobs posted recently (within last 48 hours) to prevent time waste on stale postings
+          const cutoffTime = new Date(Date.now() - 48 * 60 * 60 * 1000);
           const pendingJobs = await prisma.discoveredJob.findMany({
-            where: { status: 'QUEUED' },
+            where: {
+              status: 'QUEUED',
+              postedAt: { gte: cutoffTime },
+            },
             include: {
               evaluations: {
                 where: { userId: user.id },
@@ -314,7 +319,7 @@ export class AutonomousWorkerDaemon {
               },
             },
             orderBy: { postedAt: 'desc' },
-            take: 25,
+            take: 30,
           });
 
           for (const pj of pendingJobs) {

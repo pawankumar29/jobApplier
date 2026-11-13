@@ -80,6 +80,12 @@ You are an expert AI Career and Technical Job Evaluation specialist.
 Perform a strict, factual, and deeply contextual evaluation of the candidate against this job opening.
 Do NOT rely on naive keyword hits (e.g. if a role requires 5 years of Java and the candidate only has 1 year, penalize accordingly).
 
+CRITICAL LOCATION CONSTRAINT (MANDATORY):
+- Candidate is based in India.
+- Roles located inside India are 100% eligible (Onsite, Hybrid, or Remote).
+- International/Foreign roles are ONLY eligible if they are 100% REMOTE and allow working from India.
+- If an international role is ONSITE or HYBRID abroad (requiring overseas relocation, local work visa, or physical presence in Europe/US/Asia), you MUST return a score of 0, classification "LOW", and list in eligibilityIssues.
+
 Candidate Profile:
 - Name: ${candidate.fullName}
 - Total Years Experience: ${candidate.totalExperienceYears}
@@ -177,34 +183,46 @@ Evaluate and return a JSON object with this exact schema:
     }
 
     // 3. Location & Work arrangement
+    // Strict Mandate:
+    // - India jobs: 100% eligible (Onsite, Hybrid, or Remote).
+    // - Foreign jobs: ONLY eligible if 100% REMOTE (can be worked from India).
+    // - Foreign jobs that are Onsite or Hybrid abroad: Immediately DISQUALIFIED (Score 0).
+    const locLower = (job.location || '').toLowerCase();
+    const isRemote =
+      job.workArrangement === 'REMOTE' ||
+      locLower.includes('remote') ||
+      (job.title || '').toLowerCase().includes('remote');
+
+    const indianCities = [
+      'india', 'bangalore', 'bengaluru', 'hyderabad', 'delhi', 'noida', 'gurugram', 'gurgaon',
+      'mumbai', 'pune', 'mohali', 'chandigarh', 'kolkata', 'chennai', 'ahmedabad', 'jaipur',
+      'indore', 'kochi', 'kerala', 'trivandrum', 'bhubaneswar', 'lucknow', 'panchkula', 'punjab',
+      'haryana', 'karnataka', 'telangana', 'maharashtra', 'tamil nadu'
+    ];
+    const isIndiaJob = indianCities.some((c) => locLower.includes(c));
+
     let locationScore = 15;
-    const isRemote = job.workArrangement === 'REMOTE' || job.location.toLowerCase().includes('remote');
-    const isGlobalOrAllIndia = candidate.preferredLocations.some((loc) => {
-      const l = loc.toLowerCase().trim();
-      return (
-        l.includes('india') ||
-        l.includes('worldwide') ||
-        l.includes('global') ||
-        l.includes('anywhere') ||
-        l.includes('world') ||
-        l.includes('any') ||
-        l === 'all'
-      );
-    });
-
-    const locationMatches = candidate.preferredLocations.some((loc) =>
-      job.location.toLowerCase().includes(loc.toLowerCase().trim()) || loc.toLowerCase().trim().includes(job.location.toLowerCase())
-    );
-
-    if (isRemote) {
+    if (isIndiaJob) {
       locationScore = 15;
-      reasons.push('Full remote arrangement matches candidate preference.');
-    } else if (isGlobalOrAllIndia || locationMatches) {
+      reasons.push(`Job is based in India (${job.location}) with ${job.workArrangement || 'flexible'} arrangement.`);
+    } else if (isRemote) {
       locationScore = 15;
-      reasons.push(`Job location (${job.location}) aligns with candidate preferred regions.`);
+      reasons.push(`Foreign opening (${job.location}) is 100% Remote - candidate can work from India.`);
     } else {
-      locationScore = 8;
-      eligibilityIssues.push(`Location ${job.location} not explicitly in preferred locations list.`);
+      // Foreign job requiring physical presence / visa abroad -> Disqualified!
+      eligibilityIssues.push(
+        `Job is located in ${job.location} (overseas/non-remote) requiring physical presence abroad. Disqualified as non-remote from India.`
+      );
+      return {
+        score: 0,
+        classification: 'LOW',
+        matchingSkills,
+        missingSkills,
+        experienceCompatibility: expCompatibility,
+        salaryCompatibility: 'N/A - Location Disqualified',
+        eligibilityIssues,
+        reasons: [`Disqualified: Foreign job (${job.location}) is not remote from India.`],
+      };
     }
 
     // 4. Salary compatibility

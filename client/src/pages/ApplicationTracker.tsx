@@ -251,16 +251,24 @@ export const ApplicationTracker: React.FC = () => {
                         </span>
                       )}
                       {app.job?.source === 'NAUKRI' ? (
-                        <span className="px-2 py-0.2 rounded text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                          Naukri 1-Click Applied
+                        <span className={`px-2 py-0.2 rounded text-[10px] font-bold border ${
+                          app.status === 'SUBMITTED'
+                            ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                            : 'bg-amber-500/10 text-amber-300 border-amber-500/20'
+                        }`}>
+                          {app.status === 'SUBMITTED' ? 'Naukri 1-Click Applied' : 'Naukri Questionnaire'}
                         </span>
                       ) : isOffLinkedIn ? (
                         <span className="px-2 py-0.2 rounded text-[10px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20">
                           External Employer Portal ↗
                         </span>
                       ) : (
-                        <span className="px-2 py-0.2 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                          LinkedIn Easy Apply
+                        <span className={`px-2 py-0.2 rounded text-[10px] font-bold border ${
+                          app.status === 'SUBMITTED'
+                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                            : 'bg-amber-500/10 text-amber-300 border-amber-500/20'
+                        }`}>
+                          {app.status === 'SUBMITTED' ? 'LinkedIn Easy Apply' : 'LinkedIn Multi-Step'}
                         </span>
                       )}
                     </div>

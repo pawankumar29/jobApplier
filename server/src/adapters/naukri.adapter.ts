@@ -96,35 +96,23 @@ export class NaukriAdapter implements PlatformAdapter {
         return browserResult;
       } catch (err: any) {
         console.warn('[NaukriAdapter] Browser automation submit error:', err.message);
+        return {
+          success: false,
+          status: 'FAILED',
+          errorReason: `Naukri automation error: ${err.message}`,
+          filledFields: {},
+          screeningAnswers: {},
+        };
       }
     }
 
-    const filledFields = {
-      fullName: candidateProfile.fullName,
-      email: candidateProfile.email,
-      phone: candidateProfile.phone,
-      totalExperienceYears: candidateProfile.totalExperienceYears,
-      currentCTC: candidateProfile.currentCTC,
-      expectedCTC: candidateProfile.expectedCTC,
-      noticePeriodDays: candidateProfile.noticePeriodDays,
-      currentLocation: candidateProfile.currentLocation,
-      resumeSelected: resume.fileName,
-      submissionTimestamp: new Date().toISOString(),
-    };
-
-    const screeningAnswers = {
-      noticePeriod: `${candidateProfile.noticePeriodDays} days`,
-      expectedCTC: `${candidateProfile.expectedCTC || 'Negotiable'} INR`,
-      willingToRelocate: 'Yes',
-    };
-
     return {
-      success: true,
-      status: 'SUBMITTED',
-      confirmationId: `NK-REAL-${Date.now()}-${Math.floor(Math.random() * 8999 + 1000)}`,
-      responseNotes: `Application submitted to ${job.company} via Naukri candidate pipeline.`,
-      filledFields,
-      screeningAnswers,
+      success: false,
+      status: 'ACTION_REQUIRED',
+      actionRequiredReason: 'Naukri session cookie required to execute 1-Click apply.',
+      responseNotes: 'Please ensure Naukri is logged in via interactive setup.',
+      filledFields: {},
+      screeningAnswers: {},
     };
   }
 }

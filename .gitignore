@@ -5,5 +5,7 @@ dist/
 *.db-journal
 uploads/
 server/uploads/
+chrome_profile/
+server/chrome_profile/
 .DS_Store
 *.log

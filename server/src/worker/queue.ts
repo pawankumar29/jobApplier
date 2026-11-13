@@ -16,16 +16,18 @@ export class PriorityQueue {
 
   enqueue(item: Omit<QueuedJobItem, 'priorityScore' | 'addedAt'>): QueuedJobItem {
     // Priority calculation:
-    // 1. Recency Factor: Fresh jobs (posted in the last few minutes/hours) get top priority
-    //    so that daily limits are consumed by the latest posted jobs before older postings.
+    // 1. Ultra-Freshness Factor:
+    //    Jobs posted in the last 1-4 hours get immediate top priority,
+    //    ensuring daily quotas are strictly dedicated to the freshest postings.
     const ageHours = Math.max(0, (Date.now() - item.postedAt.getTime()) / (1000 * 60 * 60));
-    const recencyScore = Math.max(0, 100 * Math.exp(-ageHours / 18));
+    // Steep exponential decay: fresh jobs (0-3 hours) dominate with 80-100 recency score
+    const recencyScore = Math.max(0, 100 * Math.exp(-ageHours / 6));
 
     // 2. Skillset Relevance Factor: Semantic AI evaluation score (0 - 100)
     const relevanceScore = Math.min(100, Math.max(0, item.score));
 
-    // Weighted composite: 60% recency (latest created) + 40% skillset match
-    const priorityScore = recencyScore * 0.6 + relevanceScore * 0.4;
+    // Ultra-Freshness Weighted Composite: 75% Recency (newest posted first) + 25% Skillset Match
+    const priorityScore = recencyScore * 0.75 + relevanceScore * 0.25;
 
     const queuedItem: QueuedJobItem = {
       ...item,

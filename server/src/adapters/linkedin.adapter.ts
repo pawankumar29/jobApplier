@@ -36,10 +36,11 @@ export class LinkedInAdapter implements PlatformAdapter {
   async discoverJobs(params: JobSearchParams, credentials?: Record<string, any>): Promise<DiscoveredJobPayload[]> {
     const jobs: DiscoveredJobPayload[] = [];
     const titles = params.titles && params.titles.length > 0 ? params.titles : ['Software Engineer'];
-    const locations = params.locations && params.locations.length > 0 ? params.locations : ['Remote'];
+    // Target India locations and Remote explicitly
+    const searchLocations = ['India', 'Remote'];
 
     for (const title of titles.slice(0, 3)) {
-      for (const loc of locations.slice(0, 2)) {
+      for (const loc of searchLocations) {
         try {
           const discovered = await this.fetchLinkedInPublicJobs(title, loc, params, credentials);
           jobs.push(...discovered);
@@ -49,14 +50,32 @@ export class LinkedInAdapter implements PlatformAdapter {
       }
     }
 
+    const indianKeywords = [
+      'india', 'bangalore', 'bengaluru', 'hyderabad', 'delhi', 'noida', 'gurugram', 'gurgaon',
+      'mumbai', 'pune', 'mohali', 'chandigarh', 'kolkata', 'chennai', 'ahmedabad', 'jaipur',
+      'indore', 'kochi', 'kerala', 'trivandrum', 'bhubaneswar', 'lucknow', 'panchkula', 'punjab',
+      'haryana', 'karnataka', 'telangana', 'maharashtra', 'tamil nadu'
+    ];
+
+    // Filter: India jobs OR 100% Remote foreign jobs only (no foreign onsite/hybrid)
+    let filteredJobs = jobs.filter((j) => {
+      const loc = (j.location || '').toLowerCase();
+      const isIndia = indianKeywords.some((c) => loc.includes(c));
+      const isRemote =
+        j.workArrangement === 'REMOTE' ||
+        loc.includes('remote') ||
+        j.title.toLowerCase().includes('remote');
+      return isIndia || isRemote;
+    });
+
     // Filter excluded companies
     if (params.excludedCompanies && params.excludedCompanies.length > 0) {
       const excludedLower = params.excludedCompanies.map((c) => c.toLowerCase());
-      return jobs.filter((j) => !excludedLower.some((ex) => j.company.toLowerCase().includes(ex)));
+      filteredJobs = filteredJobs.filter((j) => !excludedLower.some((ex) => j.company.toLowerCase().includes(ex)));
     }
 
     // Sort by latest posted first
-    return jobs.sort((a, b) => b.postedAt.getTime() - a.postedAt.getTime());
+    return filteredJobs.sort((a, b) => b.postedAt.getTime() - a.postedAt.getTime());
   }
 
   private async fetchLinkedInPublicJobs(
@@ -68,7 +87,7 @@ export class LinkedInAdapter implements PlatformAdapter {
     const encodedKeywords = encodeURIComponent(keywords);
     const encodedLocation = encodeURIComponent(location);
     // f_TPR=r86400 fetches jobs posted in the last 24 hours (latest posted)
-    const url = `https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=${encodedKeywords}&location=${encodedLocation}&f_TPR=r86400&start=0`;
+    const url = `https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=${encodedKeywords}&location=${encodedLocation}&f_TPR=r86400&f_AL=true&start=0`;
 
     const discoveredJobs: DiscoveredJobPayload[] = [];
     const headers: Record<string, string> = {
@@ -212,45 +231,36 @@ export class LinkedInAdapter implements PlatformAdapter {
         return browserResult;
       } catch (err: any) {
         console.warn('[LinkedInAdapter] Browser automation submit error:', err.message);
+        return {
+          success: false,
+          status: 'FAILED',
+          errorReason: `Browser automation execution failed: ${err.message}`,
+          filledFields,
+          screeningAnswers,
+        };
       }
     }
 
     if (job.applicationType === 'EXTERNAL_ATS') {
       return {
-        success: true,
+        success: false,
         status: 'ACTION_REQUIRED',
         confirmationId: `EXT-${Date.now()}`,
         actionRequiredReason:
-          'Responses managed off LinkedIn: Employer manages hiring on their external company portal. Click "View Posting" to submit directly.',
+          'Responses managed off LinkedIn: Employer manages hiring on their external company portal.',
         responseNotes: 'Employer manages applications on their external company portal. Verified details prepared.',
         filledFields,
         screeningAnswers,
       };
     }
 
-    const hasAuth = Boolean(
-      (credentials?.sessionCookie && credentials.sessionCookie.length > 10) ||
-      (credentials?.username && credentials?.password)
-    );
-
-    if (!hasAuth) {
-      return {
-        success: false,
-        status: 'ACTION_REQUIRED',
-        actionRequiredReason:
-          'LinkedIn session cookie (li_at) or credentials required to execute live in-account Easy Apply submission.',
-        responseNotes:
-          'Please configure your LinkedIn session cookie in Settings > Integrations so the system can submit directly in your account.',
-        filledFields,
-        screeningAnswers,
-      };
-    }
-
     return {
-      success: true,
-      status: 'SUBMITTED',
-      confirmationId: `LI-REAL-${Date.now()}-${Math.floor(Math.random() * 8999 + 1000)}`,
-      responseNotes: `Application submitted to ${job.company} via LinkedIn Easy Apply using verified candidate profile.`,
+      success: false,
+      status: 'ACTION_REQUIRED',
+      actionRequiredReason:
+        'LinkedIn session cookie (li_at) required to execute live in-account Easy Apply submission.',
+      responseNotes:
+        'Please ensure LinkedIn is connected with active session.',
       filledFields,
       screeningAnswers,
     };

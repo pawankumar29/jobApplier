@@ -15,6 +15,7 @@
     "db:push": "prisma db push --schema=server/prisma/schema.prisma",
     "db:seed": "tsx server/src/db/seed.ts",
     "db:studio": "prisma studio --schema=server/prisma/schema.prisma",
+    "login": "node scripts/login_interactive.js",
     "test": "vitest run"
   },
   "prisma": {
