@@ -16,7 +16,7 @@ export const PreferencesSettings: React.FC = () => {
   const [totalExperienceYears, setTotalExperienceYears] = useState(4.5);
   const [currentCTC, setCurrentCTC] = useState<number | string>(2400000);
   const [expectedCTC, setExpectedCTC] = useState<number | string>(3400000);
-  const [noticePeriodDays, setNoticePeriodDays] = useState(30);
+  const [noticePeriodDays, setNoticePeriodDays] = useState<number>(0);
 
   // Preferences
   const [preferredTitles, setPreferredTitles] = useState('');
@@ -36,7 +36,7 @@ export const PreferencesSettings: React.FC = () => {
       setTotalExperienceYears(profile.totalExperienceYears || 4.5);
       setCurrentCTC(profile.currentCTC || 2400000);
       setExpectedCTC(profile.expectedCTC || 3400000);
-      setNoticePeriodDays(profile.noticePeriodDays || 30);
+      setNoticePeriodDays(profile.noticePeriodDays !== undefined && profile.noticePeriodDays !== null ? profile.noticePeriodDays : 0);
     }
 
     if (preferences) {
@@ -197,13 +197,59 @@ export const PreferencesSettings: React.FC = () => {
           </div>
 
           <div>
-            <label className="text-slate-400 block mb-1">Notice Period (Days)</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-slate-400">Notice Period (Days)</label>
+              {noticePeriodDays === 0 && (
+                <span className="text-[11px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">
+                  ⚡ Immediate Joiner (0 Days)
+                </span>
+              )}
+            </div>
             <input
               type="number"
+              min="0"
               value={noticePeriodDays}
-              onChange={(e) => setNoticePeriodDays(parseInt(e.target.value, 10) || 0)}
+              onChange={(e) => {
+                const val = e.target.value === '' ? 0 : parseInt(e.target.value, 10);
+                setNoticePeriodDays(isNaN(val) ? 0 : val);
+              }}
               className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
             />
+            <div className="flex items-center gap-1.5 mt-2">
+              <button
+                type="button"
+                onClick={() => setNoticePeriodDays(0)}
+                className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg border transition ${
+                  noticePeriodDays === 0
+                    ? 'bg-emerald-600 text-white border-emerald-500'
+                    : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
+                }`}
+              >
+                ⚡ Immediate (0 Days)
+              </button>
+              <button
+                type="button"
+                onClick={() => setNoticePeriodDays(15)}
+                className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg border transition ${
+                  noticePeriodDays === 15
+                    ? 'bg-indigo-600 text-white border-indigo-500'
+                    : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
+                }`}
+              >
+                15 Days
+              </button>
+              <button
+                type="button"
+                onClick={() => setNoticePeriodDays(30)}
+                className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg border transition ${
+                  noticePeriodDays === 30
+                    ? 'bg-indigo-600 text-white border-indigo-500'
+                    : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
+                }`}
+              >
+                30 Days
+              </button>
+            </div>
           </div>
 
           <div>

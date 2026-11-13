@@ -40,8 +40,8 @@ profileRouter.put('/', async (req: AuthenticatedRequest, res): Promise<any> => {
         certifications: typeof data.certifications === 'string' ? data.certifications : JSON.stringify(data.certifications || []),
         currentCTC: data.currentCTC ? parseFloat(data.currentCTC) : null,
         expectedCTC: data.expectedCTC ? parseFloat(data.expectedCTC) : null,
-        noticePeriodDays: parseInt(data.noticePeriodDays, 10) || 30,
-        availability: data.availability || 'Immediate',
+        noticePeriodDays: data.noticePeriodDays !== undefined && !isNaN(parseInt(data.noticePeriodDays, 10)) ? parseInt(data.noticePeriodDays, 10) : 0,
+        availability: data.availability || (parseInt(data.noticePeriodDays, 10) === 0 ? 'Immediate' : '30 Days'),
       },
       create: {
         userId: req.userId!,
@@ -62,8 +62,8 @@ profileRouter.put('/', async (req: AuthenticatedRequest, res): Promise<any> => {
         certifications: JSON.stringify(data.certifications || []),
         currentCTC: data.currentCTC ? parseFloat(data.currentCTC) : null,
         expectedCTC: data.expectedCTC ? parseFloat(data.expectedCTC) : null,
-        noticePeriodDays: parseInt(data.noticePeriodDays, 10) || 30,
-        availability: data.availability || 'Immediate',
+        noticePeriodDays: data.noticePeriodDays !== undefined && !isNaN(parseInt(data.noticePeriodDays, 10)) ? parseInt(data.noticePeriodDays, 10) : 0,
+        availability: data.availability || (parseInt(data.noticePeriodDays, 10) === 0 ? 'Immediate' : '30 Days'),
       },
     });
 

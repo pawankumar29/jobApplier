@@ -268,14 +268,14 @@ export class BrowserAutomationService {
               email: candidateProfile.email,
               phone: candidateProfile.phone,
               experience: `${candidateProfile.totalExperienceYears || 4} years`,
-              noticePeriod: `${candidateProfile.noticePeriodDays || 30} days`,
+              noticePeriod: `${candidateProfile.noticePeriodDays === 0 ? 'Immediate / 0 days' : `${candidateProfile.noticePeriodDays || 0} days`}`,
               currentCTC: `${candidateProfile.currentCTC || 800000} INR`,
               expectedCTC: `${candidateProfile.expectedCTC || 1300000} INR`,
             },
             screeningAnswers: {
               'Work authorization': 'Yes',
               'Relevant experience': `${candidateProfile.totalExperienceYears || 4} years`,
-              'Notice period': `${candidateProfile.noticePeriodDays || 30} days`,
+              'Notice period': candidateProfile.noticePeriodDays === 0 ? 'Immediate / 0 days' : `${candidateProfile.noticePeriodDays || 0} days`,
             },
           };
         }
@@ -406,7 +406,7 @@ export class BrowserAutomationService {
               'Are you authorized to work in this location?': 'Yes',
               'Do you have experience in the required stack?': 'Yes',
               'Will you now or in the future require sponsorship?': 'No',
-              'Notice Period': '30 days',
+              'Notice Period': candidateProfile.noticePeriodDays === 0 ? 'Immediate / 0 days' : `${candidateProfile.noticePeriodDays || 0} days`,
               'Current CTC': `${candidateProfile.currentCTC || 800000} INR`,
               'Expected CTC': `${candidateProfile.expectedCTC || 1300000} INR`,
             },
@@ -484,7 +484,7 @@ export class BrowserAutomationService {
               'Legally authorized to work': 'Yes',
               'Sponsorship required': 'No',
               'Experience': `${candidateProfile.totalExperienceYears || 4} years`,
-              'Notice period': '30 days',
+              'Notice period': candidateProfile.noticePeriodDays === 0 ? 'Immediate / 0 days' : `${candidateProfile.noticePeriodDays || 0} days`,
             },
           };
         } else {
@@ -612,11 +612,12 @@ export class BrowserAutomationService {
         }
       }
 
-      // Notice period inputs -> Fill 30 or 15 days
+      // Notice period inputs -> Fill candidate's notice period (0 for immediate)
+      const noticeDays = profile.noticePeriodDays !== undefined ? profile.noticePeriodDays : 0;
       const noticeInputs = page.locator('input[name*="notice" i], input[id*="notice" i]');
       const noticeCount = await noticeInputs.count().catch(() => 0);
       for (let i = 0; i < Math.min(noticeCount, 2); i++) {
-        await noticeInputs.nth(i).fill('30').catch(() => {});
+        await noticeInputs.nth(i).fill(`${noticeDays}`).catch(() => {});
       }
 
       // City / Location inputs -> Fill current location
@@ -668,10 +669,23 @@ export class BrowserAutomationService {
         await expInputs.nth(i).fill(`${profile.totalExperienceYears || 4}`).catch(() => {});
       }
 
-      // 3. Notice Period (15 or 30 days)
-      const noticePills = page.locator('button:has-text("15 Days"), button:has-text("30 Days"), label:has-text("15"), label:has-text("30"), input[name*="notice" i]');
-      if (await noticePills.first().isVisible({ timeout: 1000 }).catch(() => false)) {
-        await noticePills.first().click().catch(() => {});
+      // 3. Notice Period (Immediate / 0 days first choice for immediate joiners)
+      const noticeDays = profile.noticePeriodDays !== undefined ? profile.noticePeriodDays : 0;
+      if (noticeDays === 0) {
+        const immediatePills = page.locator('button:has-text("Immediate"), button:has-text("0 Days"), label:has-text("Immediate"), [class*="chip"]:has-text("Immediate"), button:has-text("15 Days"), label:has-text("15"), input[name*="notice" i]');
+        if (await immediatePills.first().isVisible({ timeout: 1000 }).catch(() => false)) {
+          const isInput = await immediatePills.first().evaluate((el: any) => el.tagName.toLowerCase() === 'input').catch(() => false);
+          if (isInput) {
+            await immediatePills.first().fill('0').catch(() => {});
+          } else {
+            await immediatePills.first().click().catch(() => {});
+          }
+        }
+      } else {
+        const noticePills = page.locator(`button:has-text("${noticeDays} Days"), label:has-text("${noticeDays}"), input[name*="notice" i]`);
+        if (await noticePills.first().isVisible({ timeout: 1000 }).catch(() => false)) {
+          await noticePills.first().click().catch(() => {});
+        }
       }
 
       // 4. CTC inputs

@@ -217,7 +217,7 @@ export class LinkedInAdapter implements PlatformAdapter {
 
     const screeningAnswers: Record<string, any> = {
       'Are you legally authorized to work in this location?': 'Yes',
-      'What is your notice period?': `${candidateProfile.noticePeriodDays} days`,
+      'What is your notice period?': candidateProfile.noticePeriodDays === 0 ? 'Immediate / 0 days' : `${candidateProfile.noticePeriodDays} days`,
       'How many years of relevant experience do you have?': `${candidateProfile.totalExperienceYears} years`,
     };
 
