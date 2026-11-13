@@ -21,6 +21,7 @@ export const LiveJobFeed: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [sourceFilter, setSourceFilter] = useState<string>('ALL');
+  const [timeRange, setTimeRange] = useState<'1h' | '24h' | 'all'>('1h');
   const [minScoreFilter, setMinScoreFilter] = useState<number>(0);
   const [selectedJob, setSelectedJob] = useState<DiscoveredJob | null>(null);
   const [applyingJobId, setApplyingJobId] = useState<string | null>(null);
@@ -29,7 +30,7 @@ export const LiveJobFeed: React.FC = () => {
   const fetchJobs = async () => {
     try {
       setLoading(true);
-      const params: any = { limit: 100 };
+      const params: any = { limit: 100, timeRange };
       if (sourceFilter !== 'ALL') params.source = sourceFilter;
       if (minScoreFilter > 0) params.minScore = minScoreFilter;
       if (search.trim()) params.search = search.trim();
@@ -47,7 +48,7 @@ export const LiveJobFeed: React.FC = () => {
 
   useEffect(() => {
     fetchJobs();
-  }, [sourceFilter, minScoreFilter]);
+  }, [sourceFilter, minScoreFilter, timeRange]);
 
   // Refetch when SSE discovers a new job or queues one
   useEffect(() => {
@@ -98,19 +99,58 @@ export const LiveJobFeed: React.FC = () => {
           </p>
         </div>
 
-        {/* Source Pills */}
-        <div className="flex items-center space-x-1.5 bg-slate-900 p-1 rounded-xl border border-slate-800 self-start md:self-auto">
-          {['ALL', 'LINKEDIN', 'NAUKRI', 'ATS_GREENHOUSE'].map((s) => (
+        {/* Source & Time Pills */}
+        <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
+          {/* Time Window Selector */}
+          <div className="flex items-center space-x-1 bg-slate-900/90 p-1 rounded-xl border border-slate-800">
             <button
-              key={s}
-              onClick={() => setSourceFilter(s)}
-              className={`px-3 py-1 text-xs font-semibold rounded-lg transition ${
-                sourceFilter === s ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'
+              onClick={() => setTimeRange('1h')}
+              className={`px-2.5 py-1 text-xs font-bold rounded-lg transition flex items-center space-x-1 ${
+                timeRange === '1h'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+              title="Only jobs posted in the last 60 minutes"
+            >
+              <Zap className="w-3 h-3 text-emerald-300" />
+              <span>&lt; 1 Hr (Ultra-Fresh)</span>
+            </button>
+            <button
+              onClick={() => setTimeRange('24h')}
+              className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition ${
+                timeRange === '24h'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white'
               }`}
             >
-              {s === 'ALL' ? 'All Platforms' : s.replace('ATS_', '')}
+              Today (&lt; 24h)
             </button>
-          ))}
+            <button
+              onClick={() => setTimeRange('all')}
+              className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition ${
+                timeRange === 'all'
+                  ? 'bg-slate-700 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              All Time
+            </button>
+          </div>
+
+          {/* Platform Selector */}
+          <div className="flex items-center space-x-1 bg-slate-900/90 p-1 rounded-xl border border-slate-800">
+            {['ALL', 'LINKEDIN', 'NAUKRI', 'ATS_GREENHOUSE'].map((s) => (
+              <button
+                key={s}
+                onClick={() => setSourceFilter(s)}
+                className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition ${
+                  sourceFilter === s ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                {s === 'ALL' ? 'All Platforms' : s.replace('ATS_', '')}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

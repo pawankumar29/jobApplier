@@ -39,11 +39,12 @@ export class LinkedInAdapter implements PlatformAdapter {
     // Target India locations and Remote explicitly
     const searchLocations = ['India', 'Remote'];
 
-    for (const title of titles.slice(0, 3)) {
+    for (const title of titles.slice(0, 2)) {
       for (const loc of searchLocations) {
         try {
           const discovered = await this.fetchLinkedInPublicJobs(title, loc, params, credentials);
           jobs.push(...discovered);
+          await new Promise((r) => setTimeout(r, 1200));
         } catch (err: any) {
           console.warn(`[LinkedInAdapter] Error fetching real jobs for ${title} in ${loc}:`, err.message);
         }
@@ -141,6 +142,11 @@ export class LinkedInAdapter implements PlatformAdapter {
       const postedAt = timeMatch ? new Date(timeMatch[1]) : new Date();
 
       if (!title || !company) continue;
+
+      // Discard stale jobs older than 24 hours to keep feed strictly recent
+      if (Date.now() - postedAt.getTime() > 24 * 60 * 60 * 1000) {
+        continue;
+      }
 
       const isRemote = location.toLowerCase().includes('remote') || title.toLowerCase().includes('remote');
       const isEasyApply =

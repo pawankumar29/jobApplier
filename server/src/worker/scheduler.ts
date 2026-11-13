@@ -12,6 +12,7 @@ import { decrypt } from '../utils/crypto.js';
 export class AutonomousWorkerDaemon {
   private timer: NodeJS.Timeout | null = null;
   private isProcessingQueue = false;
+  private lastDiscoveryTime = 0;
   private linkedInAdapter = new LinkedInAdapter();
   private naukriAdapter = new NaukriAdapter();
   private atsAdapter = new ATSAdapter();
@@ -68,10 +69,23 @@ export class AutonomousWorkerDaemon {
         // 1. Check daily limit reset
         await this.checkDailyLimitReset(config);
 
-        // 2. Discover new jobs
-        await this.discoverJobsForUser(user);
+        // Prune stale unapplied jobs older than 24 hours to keep DB lean & ultra-fresh
+        const cutoff24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        await prisma.discoveredJob.deleteMany({
+          where: {
+            postedAt: { lt: cutoff24h },
+            applications: { none: {} }
+          }
+        }).catch(() => {});
 
-        // 3. Process priority queue
+        // 2. Discover new jobs (Throttled to every 2 minutes so LinkedIn/Naukri TCP connections are not rate-limited)
+        const now = Date.now();
+        if (now - this.lastDiscoveryTime > 2 * 60 * 1000) {
+          this.lastDiscoveryTime = now;
+          await this.discoverJobsForUser(user);
+        }
+
+        // 3. Process priority queue (executes fast on every tick!)
         await this.processApplicationQueue(user, config);
 
         // Update last cycle timestamp

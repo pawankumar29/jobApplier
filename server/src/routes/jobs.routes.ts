@@ -9,7 +9,7 @@ jobsRouter.use(authMiddleware);
 
 jobsRouter.get('/', async (req: AuthenticatedRequest, res): Promise<any> => {
   try {
-    const { source, status, minScore, search, page = '1', limit = '50' } = req.query;
+    const { source, status, minScore, search, page = '1', limit = '50', timeRange = '1h' } = req.query;
     const pageNum = parseInt(page as string, 10) || 1;
     const take = parseInt(limit as string, 10) || 50;
     const skip = (pageNum - 1) * take;
@@ -17,6 +17,13 @@ jobsRouter.get('/', async (req: AuthenticatedRequest, res): Promise<any> => {
     const where: any = {};
     if (source) where.source = (source as string).toUpperCase();
     if (status) where.status = (status as string).toUpperCase();
+
+    if (timeRange === '1h') {
+      where.postedAt = { gte: new Date(Date.now() - 60 * 60 * 1000) };
+    } else if (timeRange === '24h') {
+      where.postedAt = { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) };
+    } // if 'all', no time filter
+
     if (search) {
       where.OR = [
         { title: { contains: search as string } },

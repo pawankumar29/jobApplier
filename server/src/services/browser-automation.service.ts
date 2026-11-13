@@ -94,8 +94,8 @@ export class BrowserAutomationService {
       const searchSlug = keyword.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
       const locSlug = location ? location.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') : '';
       const url = locSlug
-        ? `https://www.naukri.com/${searchSlug}-jobs-in-${locSlug}`
-        : `https://www.naukri.com/${searchSlug}-jobs`;
+        ? `https://www.naukri.com/${searchSlug}-jobs-in-${locSlug}?jobAge=1&sort=date`
+        : `https://www.naukri.com/${searchSlug}-jobs?jobAge=1&sort=date`;
 
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 35000 });
       // Allow dynamic cards to hydrate
