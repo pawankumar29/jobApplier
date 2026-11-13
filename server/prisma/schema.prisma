@@ -1,0 +1,208 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id               String               @id @default(uuid())
+  email            String               @unique
+  passwordHash     String
+  name             String
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  profile          Profile?
+  preferences      JobPreference?
+  resumes          Resume[]
+  integrations     IntegrationAccount[]
+  evaluations      JobEvaluation[]
+  applications     Application[]
+  notifications    Notification[]
+  automationConfig AutomationConfig?
+  automationLogs   AutomationLog[]
+}
+
+model Profile {
+  id                   String   @id @default(uuid())
+  userId               String   @unique
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName             String
+  email                String
+  phone                String
+  currentLocation      String
+  preferredLocations   String   // JSON array
+  education            String   // JSON array
+  totalExperienceYears Float
+  employmentHistory    String   // JSON array
+  technicalSkills      String   // JSON array
+  programmingLanguages String   // JSON array
+  frameworks           String   // JSON array
+  databases            String   // JSON array
+  cloudDevops          String   // JSON array
+  projects             String   // JSON array
+  certifications       String   // JSON array
+  currentCTC           Float?
+  expectedCTC          Float?
+  noticePeriodDays     Int      @default(30)
+  availability         String   @default("Immediate")
+  updatedAt            DateTime @updatedAt
+}
+
+model JobPreference {
+  id                   String   @id @default(uuid())
+  userId               String   @unique
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  preferredTitles      String   // JSON array
+  targetIndustries     String   // JSON array
+  preferredCompanies   String   // JSON array
+  excludedCompanies    String   // JSON array
+  excludedCategories   String   // JSON array
+  minExperience        Float    @default(0)
+  maxExperience        Float    @default(15)
+  minSalary            Float?
+  remotePreference     String   @default("ANY") // REMOTE, HYBRID, ONSITE, ANY
+  employmentType       String   @default("FULL_TIME") // FULL_TIME, CONTRACT, ANY
+  preferredLocations   String   // JSON array
+  minRelevanceScore    Int      @default(75)
+  maxDailyApplications Int      @default(99999) // 99999 = Unlimited applications
+  updatedAt            DateTime @updatedAt
+}
+
+model Resume {
+  id           String        @id @default(uuid())
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fileName     String
+  fileType     String        // PDF, DOCX
+  filePath     String?
+  fileContent  String?       // Base64 storage fallback
+  parsedText   String
+  parsedData   String        // Structured JSON
+  isPrimary    Boolean       @default(false)
+  targetRoles  String        // JSON array
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  applications Application[]
+}
+
+model IntegrationAccount {
+  id                   String    @id @default(uuid())
+  userId               String
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform             String    // LINKEDIN, NAUKRI, ATS_PORTAL
+  authType             String    // OAUTH, SESSION_TOKEN, CREDENTIALS
+  credentialsEncrypted String
+  status               String    @default("CONNECTED") // CONNECTED, EXPIRED, ERROR, DISCONNECTED
+  lastSyncAt           DateTime?
+  errorReason          String?
+  metadata             String    @default("{}") // JSON
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+}
+
+model DiscoveredJob {
+  id                  String         @id @default(uuid())
+  source              String         // LINKEDIN, NAUKRI, ATS_GREENHOUSE, ATS_LEVER, ATS_WORKDAY
+  externalJobId       String
+  title               String
+  company             String
+  location            String
+  workArrangement     String         @default("ONSITE") // REMOTE, HYBRID, ONSITE
+  experienceRequired  String?
+  minSalary           Float?
+  maxSalary           Float?
+  currency            String         @default("INR")
+  description         String
+  requiredSkills      String         // JSON array
+  applicationUrl      String
+  applicationType     String         @default("EASY_APPLY") // EASY_APPLY, PORTAL_1CLICK, EXTERNAL_ATS
+  postedAt            DateTime
+  discoveredAt        DateTime       @default(now())
+  hash                String         @unique // deduplication hash
+  status              String         @default("DISCOVERED") // DISCOVERED, EVALUATED, QUEUED, APPLIED, SKIPPED, FAILED
+  evaluations         JobEvaluation[]
+  applications        Application[]
+  createdAt           DateTime       @default(now())
+}
+
+model JobEvaluation {
+  id                         String        @id @default(uuid())
+  jobId                      String
+  job                        DiscoveredJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  userId                     String
+  user                       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  score                      Int           // 0 - 100
+  classification             String        // EXCELLENT, HIGH, RELEVANT, LOW
+  matchingSkills             String        // JSON array
+  missingSkills              String        // JSON array
+  experienceCompatibility    String
+  salaryCompatibility        String
+  eligibilityIssues          String        // JSON array
+  reasons                    String        // JSON array
+  evaluatedAt                DateTime      @default(now())
+  latencyDiscoveryToEvalMs   Int           @default(0)
+}
+
+model Application {
+  id                 String        @id @default(uuid())
+  jobId              String
+  job                DiscoveredJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  userId             String
+  user               User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resumeId           String?
+  resume             Resume?       @relation(fields: [resumeId], references: [id], onDelete: SetNull)
+  status             String        @default("QUEUED") // QUEUED, PROCESSING, SUBMITTED, ACTION_REQUIRED, FAILED, REJECTED
+  appliedAt          DateTime?
+  mechanism          String        // EASY_APPLY, PORTAL_1CLICK, EXTERNAL_ATS
+  filledFields       String        @default("{}") // JSON
+  screeningAnswers   String        @default("{}") // JSON
+  confirmationId     String?
+  responseNotes      String?
+  errorReason        String?
+  latencyJobToAppMs  Int           @default(0)
+  retryCount         Int           @default(0)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // JOB_MATCH, APP_SUBMITTED, APP_FAILED, ACTION_REQUIRED, AUTH_EXPIRED, DAILY_DIGEST
+  title     String
+  message   String
+  metadata  String   @default("{}") // JSON
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model AutomationConfig {
+  id                     String    @id @default(uuid())
+  userId                 String    @unique
+  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isRunning              Boolean   @default(false)
+  checkIntervalMinutes   Int       @default(5) // default 5 minutes
+  maxConcurrency         Int       @default(3)
+  dailyApplicationsCount Int       @default(0)
+  lastResetDate          DateTime  @default(now())
+  lastCycleAt            DateTime?
+  nextCycleAt            DateTime?
+  status                 String    @default("STOPPED") // RUNNING, PAUSED, STOPPED
+  updatedAt              DateTime  @updatedAt
+}
+
+model AutomationLog {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  level     String   @default("INFO") // INFO, WARN, ERROR
+  action    String
+  message   String
+  metadata  String   @default("{}") // JSON
+  timestamp DateTime @default(now())
+}
+
