@@ -15,11 +15,21 @@ export class PriorityQueue {
   private inProgress: Set<string> = new Set();
 
   enqueue(item: Omit<QueuedJobItem, 'priorityScore' | 'addedAt'>): QueuedJobItem {
+    // Strict 1-Hour Cutoff Rule:
+    // Reject and never queue any job posted more than 1 hour ago.
+    const ageHours = Math.max(0, (Date.now() - item.postedAt.getTime()) / (1000 * 60 * 60));
+    if (ageHours > 1) {
+      return {
+        ...item,
+        priorityScore: 0,
+        addedAt: new Date(),
+      };
+    }
+
     // Priority calculation:
     // 1. Ultra-Freshness Factor:
     //    Jobs posted in the last 1-4 hours get immediate top priority,
     //    ensuring daily quotas are strictly dedicated to the freshest postings.
-    const ageHours = Math.max(0, (Date.now() - item.postedAt.getTime()) / (1000 * 60 * 60));
     // Steep exponential decay: fresh jobs (0-3 hours) dominate with 80-100 recency score
     const recencyScore = Math.max(0, 100 * Math.exp(-ageHours / 6));
 
@@ -39,12 +49,15 @@ export class PriorityQueue {
     this.items = this.items.filter((i) => i.jobId !== item.jobId);
     this.items.push(queuedItem);
 
-    // Sort: Primary by priorityScore descending, secondary by postedAt timestamp descending (latest created first)
+    // Strict Sort Order:
+    // PRIMARY: postedAt timestamp DESCENDING (Latest / newest created job strictly first)
+    // SECONDARY: match priority score descending
     this.items.sort((a, b) => {
-      if (Math.abs(b.priorityScore - a.priorityScore) > 1.5) {
-        return b.priorityScore - a.priorityScore;
+      const timeDiff = b.postedAt.getTime() - a.postedAt.getTime();
+      if (timeDiff !== 0) {
+        return timeDiff; // Newest posted timestamp always dequeued first
       }
-      return b.postedAt.getTime() - a.postedAt.getTime();
+      return b.priorityScore - a.priorityScore;
     });
 
     return queuedItem;

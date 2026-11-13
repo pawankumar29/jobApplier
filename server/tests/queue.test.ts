@@ -6,14 +6,14 @@ describe('Priority Queue (Early Applicant Prioritization)', () => {
     const queue = new PriorityQueue();
     const now = Date.now();
 
-    // Job 1: Posted 2 hours ago, score 80
+    // Job 1: Posted 45 minutes ago, score 80
     queue.enqueue({
       id: 'job-1',
       jobId: 'job-1',
       userId: 'u1',
       score: 80,
-      postedAt: new Date(now - 7200000), // 2 hours ago
-      discoveredAt: new Date(now - 7200000),
+      postedAt: new Date(now - 45 * 60 * 1000), // 45 mins ago (within 1h limit)
+      discoveredAt: new Date(now - 45 * 60 * 1000),
       retryCount: 0,
     });
 

@@ -86,8 +86,8 @@ export class LinkedInAdapter implements PlatformAdapter {
   ): Promise<DiscoveredJobPayload[]> {
     const encodedKeywords = encodeURIComponent(keywords);
     const encodedLocation = encodeURIComponent(location);
-    // f_TPR=r86400 fetches jobs posted in the last 24 hours (latest posted)
-    const url = `https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=${encodedKeywords}&location=${encodedLocation}&f_TPR=r86400&f_AL=true&start=0`;
+    // f_TPR=r3600 fetches jobs posted strictly in the last 1 hour (3600 seconds)
+    const url = `https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=${encodedKeywords}&location=${encodedLocation}&f_TPR=r3600&f_AL=true&start=0`;
 
     const discoveredJobs: DiscoveredJobPayload[] = [];
     const headers: Record<string, string> = {

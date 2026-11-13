@@ -258,6 +258,17 @@ export class AutonomousWorkerDaemon {
       },
     });
 
+    // Strict 1-Hour Cutoff: If job is older than 1 hour, skip it immediately!
+    const ageHours = (Date.now() - new Date(job.postedAt).getTime()) / (1000 * 60 * 60);
+    if (ageHours > 1) {
+      console.log(`[AutonomousWorkerDaemon] Skipping job "${job.title}" at ${job.company}: older than 1 hour (${Math.round(ageHours * 60)} mins old).`);
+      await prisma.discoveredJob.update({
+        where: { id: job.id },
+        data: { status: 'SKIPPED' },
+      });
+      return;
+    }
+
     // Check if score meets user threshold
     const minThreshold = prefs.minRelevanceScore || 75;
     if (evalResult.score >= minThreshold) {
@@ -305,8 +316,8 @@ export class AutonomousWorkerDaemon {
         let queueItem = jobPriorityQueue.dequeue();
         if (!queueItem) {
           // Hydrate from DB: strictly grab freshest QUEUED jobs ordered by latest postedAt first
-          // Focus exclusively on jobs posted recently (within last 48 hours) to prevent time waste on stale postings
-          const cutoffTime = new Date(Date.now() - 48 * 60 * 60 * 1000);
+          // Focus exclusively on jobs posted recently (within last 1 hour) to prevent time waste on stale postings
+          const cutoffTime = new Date(Date.now() - 1 * 60 * 60 * 1000);
           const pendingJobs = await prisma.discoveredJob.findMany({
             where: {
               status: 'QUEUED',
@@ -354,6 +365,18 @@ export class AutonomousWorkerDaemon {
       });
 
       if (!job) {
+        jobPriorityQueue.markCompleted(queueItem.jobId);
+        return;
+      }
+
+      // Strict 1-Hour Cutoff: Double check before submission
+      const ageHours = (Date.now() - new Date(job.postedAt).getTime()) / (1000 * 60 * 60);
+      if (ageHours > 1) {
+        console.log(`[AutonomousWorkerDaemon] Skipping apply for ${job.title}: older than 1h limit (${Math.round(ageHours * 60)} mins).`);
+        await prisma.discoveredJob.update({
+          where: { id: job.id },
+          data: { status: 'SKIPPED' },
+        });
         jobPriorityQueue.markCompleted(queueItem.jobId);
         return;
       }
