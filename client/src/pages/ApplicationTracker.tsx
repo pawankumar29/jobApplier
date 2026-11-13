@@ -131,69 +131,95 @@ export const ApplicationTracker: React.FC = () => {
       </div>
 
       {/* Primary Filter Toolbar */}
-      <div className="glass-panel p-4 rounded-2xl flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 border border-slate-800">
-        {/* Date Filter Tabs (Default: Total Applied) */}
-        <div className="flex flex-wrap items-center gap-1.5 bg-slate-900 p-1.5 rounded-xl border border-slate-800">
-          <button
-            onClick={() => setDateFilter('ALL')}
-            className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition ${
-              dateFilter === 'ALL' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            Total Applied ({totalAppliedCount})
-          </button>
-          <button
-            onClick={() => setDateFilter('TODAY')}
-            className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition ${
-              dateFilter === 'TODAY' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            Today ({appliedTodayCount})
-          </button>
-          <button
-            onClick={() => setDateFilter('YESTERDAY')}
-            className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition ${
-              dateFilter === 'YESTERDAY' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            Yesterday
-          </button>
-          <button
-            onClick={() => setDateFilter('CUSTOM')}
-            className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition flex items-center space-x-1 ${
-              dateFilter === 'CUSTOM' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Calendar className="w-3.5 h-3.5 mr-1" />
-            <span>By Calendar Date</span>
-          </button>
+      <div className="glass-panel p-4 rounded-2xl flex flex-col gap-3 border border-slate-800">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
+          {/* Date Filter Tabs (Default: Total Applied) */}
+          <div className="flex flex-wrap items-center gap-1.5 bg-slate-900 p-1.5 rounded-xl border border-slate-800">
+            <button
+              onClick={() => setDateFilter('ALL')}
+              className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition ${
+                dateFilter === 'ALL' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Total Applied ({totalAppliedCount})
+            </button>
+            <button
+              onClick={() => setDateFilter('TODAY')}
+              className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition ${
+                dateFilter === 'TODAY' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Today ({appliedTodayCount})
+            </button>
+            <button
+              onClick={() => setDateFilter('YESTERDAY')}
+              className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition ${
+                dateFilter === 'YESTERDAY' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Yesterday
+            </button>
+            <button
+              onClick={() => setDateFilter('CUSTOM')}
+              className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition flex items-center space-x-1 ${
+                dateFilter === 'CUSTOM' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Calendar className="w-3.5 h-3.5 mr-1" />
+              <span>By Calendar Date</span>
+            </button>
+          </div>
+
+          {/* Platform Tabs & Date Picker */}
+          <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto text-xs">
+            {dateFilter === 'CUSTOM' && (
+              <input
+                type="date"
+                value={customDate}
+                onChange={(e) => setCustomDate(e.target.value)}
+                className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500"
+              />
+            )}
+
+            {/* Platform Pills */}
+            <div className="flex items-center space-x-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
+              {['ALL', 'LINKEDIN', 'NAUKRI'].map((platform) => (
+                <button
+                  key={platform}
+                  onClick={() => setPlatformFilter(platform)}
+                  className={`px-3 py-1 text-xs font-semibold rounded-lg transition ${
+                    platformFilter === platform ? 'bg-slate-800 text-white font-bold' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {platform === 'ALL' ? 'All Platforms' : platform === 'LINKEDIN' ? 'LinkedIn' : 'Naukri'}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
-        {/* Platform Tabs & Date Picker */}
-        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto text-xs">
-          {dateFilter === 'CUSTOM' && (
-            <input
-              type="date"
-              value={customDate}
-              onChange={(e) => setCustomDate(e.target.value)}
-              className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500"
-            />
-          )}
-
-          {/* Platform Pills */}
-          <div className="flex items-center space-x-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
-            {['ALL', 'LINKEDIN', 'NAUKRI'].map((platform) => (
-              <button
-                key={platform}
-                onClick={() => setPlatformFilter(platform)}
-                className={`px-3 py-1 text-xs font-semibold rounded-lg transition ${
-                  platformFilter === platform ? 'bg-slate-800 text-white font-bold' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                {platform === 'ALL' ? 'All' : platform === 'LINKEDIN' ? 'LinkedIn' : 'Naukri'}
-              </button>
-            ))}
-          </div>
+        {/* Status Filter Tabs (All, Submitted, Action Required, Processing, Failed) */}
+        <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-800/80">
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">Filter by Status:</span>
+          {[
+            { id: 'ALL', label: 'All Statuses' },
+            { id: 'SUBMITTED', label: 'Submitted', color: 'emerald' },
+            { id: 'ACTION_REQUIRED', label: 'Action Required', color: 'amber' },
+            { id: 'PROCESSING', label: 'Processing', color: 'blue' },
+            { id: 'FAILED', label: 'Failed', color: 'rose' },
+          ].map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setStatusFilter(item.id)}
+              className={`px-3 py-1 text-xs font-bold rounded-lg transition flex items-center space-x-1.5 ${
+                statusFilter === item.id
+                  ? 'bg-indigo-600 text-white shadow ring-1 ring-indigo-400'
+                  : 'bg-slate-900/90 text-slate-400 hover:text-white border border-slate-800 hover:border-slate-700'
+              }`}
+            >
+              <span>{item.label}</span>
+            </button>
+          ))}
         </div>
       </div>
 

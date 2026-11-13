@@ -618,6 +618,35 @@ export class BrowserAutomationService {
       for (let i = 0; i < Math.min(noticeCount, 2); i++) {
         await noticeInputs.nth(i).fill('30').catch(() => {});
       }
+
+      // City / Location inputs -> Fill current location
+      const cityInputs = page.locator('input[name*="city" i], input[id*="city" i], input[placeholder*="city" i]');
+      if (await cityInputs.first().isVisible({ timeout: 500 }).catch(() => false)) {
+        await cityInputs.first().fill(profile.currentLocation || 'Mohali, India').catch(() => {});
+      }
+
+      // Current Company inputs from resume
+      const compInputs = page.locator('input[name*="company" i], input[id*="company" i], input[placeholder*="company" i]');
+      if (await compInputs.first().isVisible({ timeout: 500 }).catch(() => false)) {
+        await compInputs.first().fill('Grazitti Interactive').catch(() => {});
+      }
+
+      // Current Designation / Role inputs from resume
+      const desigInputs = page.locator('input[name*="title" i], input[name*="designation" i], input[placeholder*="title" i]');
+      if (await desigInputs.first().isVisible({ timeout: 500 }).catch(() => false)) {
+        await desigInputs.first().fill('Software Engineer (MERN Stack)').catch(() => {});
+      }
+
+      // CTC inputs (Current / Expected)
+      const currentCtcInput = page.locator('input[name*="current" i][name*="ctc" i], input[placeholder*="current" i][placeholder*="ctc" i]').first();
+      if (await currentCtcInput.isVisible({ timeout: 500 }).catch(() => false)) {
+        await currentCtcInput.fill(`${profile.currentCTC || 800000}`).catch(() => {});
+      }
+
+      const expectedCtcInput = page.locator('input[name*="expected" i][name*="ctc" i], input[placeholder*="expected" i][placeholder*="ctc" i]').first();
+      if (await expectedCtcInput.isVisible({ timeout: 500 }).catch(() => false)) {
+        await expectedCtcInput.fill(`${profile.expectedCTC || 1300000}`).catch(() => {});
+      }
     } catch (e) {
       // Best effort answer
     }
@@ -649,6 +678,23 @@ export class BrowserAutomationService {
       const ctcInputs = page.locator('input[placeholder*="ctc" i], input[name*="ctc" i]');
       if (await ctcInputs.first().isVisible({ timeout: 1000 }).catch(() => false)) {
         await ctcInputs.first().fill(`${profile.expectedCTC || 1300000}`).catch(() => {});
+      }
+
+      // 5. Current Company & Role from resume
+      const compInputs = page.locator('input[placeholder*="company" i], input[name*="company" i]');
+      if (await compInputs.first().isVisible({ timeout: 500 }).catch(() => false)) {
+        await compInputs.first().fill('Grazitti Interactive').catch(() => {});
+      }
+
+      const desigInputs = page.locator('input[placeholder*="designation" i], input[name*="designation" i]');
+      if (await desigInputs.first().isVisible({ timeout: 500 }).catch(() => false)) {
+        await desigInputs.first().fill('Software Engineer').catch(() => {});
+      }
+
+      // 6. City / Current Location from resume
+      const locInputs = page.locator('input[placeholder*="location" i], input[placeholder*="city" i]');
+      if (await locInputs.first().isVisible({ timeout: 500 }).catch(() => false)) {
+        await locInputs.first().fill(profile.currentLocation || 'Mohali, India').catch(() => {});
       }
 
       // 5. Click Save & Apply or Submit button inside Naukri drawer/chatbot
