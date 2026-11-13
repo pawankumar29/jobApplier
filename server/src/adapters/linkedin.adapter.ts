@@ -98,14 +98,10 @@ export class LinkedInAdapter implements PlatformAdapter {
       'Accept-Language': 'en-US,en;q=0.9',
     };
 
-    if (credentials?.sessionCookie) {
-      headers['Cookie'] = credentials.sessionCookie.startsWith('li_at=')
-        ? credentials.sessionCookie
-        : `li_at=${credentials.sessionCookie}`;
-    }
-
     try {
-      const response = await fetch(url, { headers });
+      // NOTE: Do NOT send authenticated session cookies to 'jobs-guest' endpoint.
+      // LinkedIn throws a 302 redirect loop (Error: redirect count exceeded) if li_at is sent to guest endpoints.
+      const response = await fetch(url, { headers, redirect: 'follow' });
 
       if (response.ok) {
         const html = await response.text();
