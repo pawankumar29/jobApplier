@@ -139,7 +139,7 @@ export const LiveJobFeed: React.FC = () => {
 
           {/* Platform Selector */}
           <div className="flex items-center space-x-1 bg-slate-900/90 p-1 rounded-xl border border-slate-800">
-            {['ALL', 'LINKEDIN', 'NAUKRI', 'ATS_GREENHOUSE'].map((s) => (
+            {['ALL', 'LINKEDIN', 'NAUKRI', 'INDEED', 'ATS_GREENHOUSE'].map((s) => (
               <button
                 key={s}
                 onClick={() => setSourceFilter(s)}

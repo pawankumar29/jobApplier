@@ -4,10 +4,12 @@ import { encrypt, decrypt } from '../utils/crypto.js';
 import { authMiddleware, AuthenticatedRequest } from '../middlewares/auth.middleware.js';
 import { LinkedInAdapter } from '../adapters/linkedin.adapter.js';
 import { NaukriAdapter } from '../adapters/naukri.adapter.js';
+import { IndeedAdapter } from '../adapters/indeed.adapter.js';
 
 export const integrationsRouter = Router();
 const linkedInAdapter = new LinkedInAdapter();
 const naukriAdapter = new NaukriAdapter();
+const indeedAdapter = new IndeedAdapter();
 
 integrationsRouter.use(authMiddleware);
 
@@ -50,6 +52,8 @@ integrationsRouter.post('/connect', async (req: AuthenticatedRequest, res): Prom
       validation = await linkedInAdapter.validateCredentials(credentials);
     } else if (platform === 'NAUKRI') {
       validation = await naukriAdapter.validateCredentials(credentials);
+    } else if (platform === 'INDEED') {
+      validation = await indeedAdapter.validateCredentials(credentials);
     }
 
     const saved = await prisma.integrationAccount.upsert({
@@ -133,6 +137,8 @@ integrationsRouter.post('/:platform/test', async (req: AuthenticatedRequest, res
       validation = await linkedInAdapter.validateCredentials(credentials);
     } else if (platform === 'NAUKRI') {
       validation = await naukriAdapter.validateCredentials(credentials);
+    } else if (platform === 'INDEED') {
+      validation = await indeedAdapter.validateCredentials(credentials);
     }
 
     if (validation.valid) {

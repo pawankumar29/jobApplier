@@ -11,7 +11,7 @@ export interface JobSearchParams {
 
 export interface DiscoveredJobPayload {
   externalJobId: string;
-  source: 'LINKEDIN' | 'NAUKRI' | 'ATS_GREENHOUSE' | 'ATS_LEVER' | 'ATS_WORKDAY' | 'DIRECT';
+  source: 'LINKEDIN' | 'NAUKRI' | 'INDEED' | 'ATS_GREENHOUSE' | 'ATS_LEVER' | 'ATS_WORKDAY' | 'DIRECT';
   title: string;
   company: string;
   location: string;

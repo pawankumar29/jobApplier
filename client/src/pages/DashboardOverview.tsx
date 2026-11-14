@@ -90,7 +90,7 @@ export const DashboardOverview: React.FC<{ onNavigate: (tab: string) => void }> 
             Zero-Touch Early Applicant Automation
           </h2>
           <p className="text-slate-300 text-sm mt-2 leading-relaxed">
-            Continuously scanning LinkedIn, Naukri, and verified career portals. Discovers newly posted positions, evaluates complete skill alignment, and submits verified applications within minutes.
+            Continuously scanning LinkedIn, Naukri, and Indeed. Discovers newly posted positions, evaluates complete skill alignment, and submits verified applications within minutes.
           </p>
           <div className="flex flex-wrap items-center gap-3 mt-5">
             <button
@@ -115,7 +115,7 @@ export const DashboardOverview: React.FC<{ onNavigate: (tab: string) => void }> 
         <MetricCard
           title="Jobs Discovered"
           value={metrics?.totalDiscovered ?? 0}
-          subtext="Scanned across LinkedIn & Naukri"
+          subtext="Scanned across LinkedIn, Naukri & Indeed"
           icon={Compass}
           badge="Live"
           badgeColor="indigo"

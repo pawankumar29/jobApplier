@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { prisma } from '../db/prisma.js';
 import { LinkedInAdapter } from '../adapters/linkedin.adapter.js';
 import { NaukriAdapter } from '../adapters/naukri.adapter.js';
+import { IndeedAdapter } from '../adapters/indeed.adapter.js';
 import { ATSAdapter } from '../adapters/ats.adapter.js';
 import { AIMatcherService } from '../services/ai-matcher.service.js';
 import { jobPriorityQueue } from './queue.js';
@@ -15,6 +16,7 @@ export class AutonomousWorkerDaemon {
   private lastDiscoveryTime = 0;
   private linkedInAdapter = new LinkedInAdapter();
   private naukriAdapter = new NaukriAdapter();
+  private indeedAdapter = new IndeedAdapter();
   private atsAdapter = new ATSAdapter();
   private aiMatcher = new AIMatcherService();
 
@@ -137,6 +139,7 @@ export class AutonomousWorkerDaemon {
     // Extract user's decrypted real credentials
     const linkedInIntegration = user.integrations?.find((i: any) => i.platform === 'LINKEDIN');
     const naukriIntegration = user.integrations?.find((i: any) => i.platform === 'NAUKRI');
+    const indeedIntegration = user.integrations?.find((i: any) => i.platform === 'INDEED');
 
     let linkedInCreds: any = undefined;
     if (linkedInIntegration?.credentialsEncrypted) {
@@ -152,7 +155,14 @@ export class AutonomousWorkerDaemon {
       } catch (e) {}
     }
 
-    // Run discovery across live LinkedIn, Naukri, and ATS using actual user credentials
+    let indeedCreds: any = undefined;
+    if (indeedIntegration?.credentialsEncrypted) {
+      try {
+        indeedCreds = JSON.parse(decrypt(indeedIntegration.credentialsEncrypted));
+      } catch (e) {}
+    }
+
+    // Run discovery across live LinkedIn, Naukri, Indeed, and ATS
     const discoveryPromises = [
       this.linkedInAdapter.discoverJobs(searchParams, linkedInCreds).catch((e) => {
         console.warn('[Discovery] LinkedIn live search error:', e.message);
@@ -160,6 +170,10 @@ export class AutonomousWorkerDaemon {
       }),
       this.naukriAdapter.discoverJobs(searchParams, naukriCreds).catch((e) => {
         console.warn('[Discovery] Naukri live search error:', e.message);
+        return [];
+      }),
+      this.indeedAdapter.discoverJobs(searchParams, indeedCreds).catch((e) => {
+        console.warn('[Discovery] Indeed live search error:', e.message);
         return [];
       }),
       this.atsAdapter.discoverJobs(searchParams).catch((e) => {
@@ -432,6 +446,7 @@ export class AutonomousWorkerDaemon {
       // Select adapter based on source
       let adapter = this.linkedInAdapter as any;
       if (job.source === 'NAUKRI') adapter = this.naukriAdapter;
+      else if (job.source === 'INDEED') adapter = this.indeedAdapter;
       else if (job.source.startsWith('ATS')) adapter = this.atsAdapter;
 
       // Submit application

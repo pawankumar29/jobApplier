@@ -183,7 +183,7 @@ export const ApplicationTracker: React.FC = () => {
 
             {/* Platform Pills */}
             <div className="flex items-center space-x-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
-              {['ALL', 'LINKEDIN', 'NAUKRI'].map((platform) => (
+              {['ALL', 'LINKEDIN', 'NAUKRI', 'INDEED'].map((platform) => (
                 <button
                   key={platform}
                   onClick={() => setPlatformFilter(platform)}
@@ -191,7 +191,7 @@ export const ApplicationTracker: React.FC = () => {
                     platformFilter === platform ? 'bg-slate-800 text-white font-bold' : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  {platform === 'ALL' ? 'All Platforms' : platform === 'LINKEDIN' ? 'LinkedIn' : 'Naukri'}
+                  {platform === 'ALL' ? 'All Platforms' : platform === 'LINKEDIN' ? 'LinkedIn' : platform === 'NAUKRI' ? 'Naukri' : 'Indeed'}
                 </button>
               ))}
             </div>

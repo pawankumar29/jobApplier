@@ -108,6 +108,7 @@ export const IntegrationsManager: React.FC = () => {
 
   const linkedIn = getIntegration('LINKEDIN');
   const naukri = getIntegration('NAUKRI');
+  const indeed = getIntegration('INDEED');
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -116,7 +117,7 @@ export const IntegrationsManager: React.FC = () => {
         <div>
           <h2 className="text-xl font-bold text-white">Platform Credentials & Integrations</h2>
           <p className="text-xs text-slate-400">
-            Enter your real LinkedIn and Naukri credentials here. Stored locally with AES-256-GCM encryption.
+            Configure your real LinkedIn, Naukri, and Indeed credentials here. Stored locally with AES-256-GCM encryption.
           </p>
         </div>
 
@@ -141,7 +142,7 @@ export const IntegrationsManager: React.FC = () => {
       )}
 
       {/* Integration Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* LinkedIn Integration */}
         <div className="glass-panel p-6 rounded-3xl border border-slate-800 flex flex-col justify-between">
           <div>
@@ -292,6 +293,85 @@ export const IntegrationsManager: React.FC = () => {
             {naukri?.status === 'CONNECTED' && (
               <button
                 onClick={() => handleDisconnect('NAUKRI')}
+                className="px-3 py-2 text-xs text-rose-400 hover:bg-rose-500/10 rounded-xl transition"
+              >
+                Disconnect
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Indeed Integration */}
+        <div className="glass-panel p-6 rounded-3xl border border-slate-800 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#2164f3]/20 border border-[#2164f3]/40 flex items-center justify-center font-black text-[#2164f3] text-lg">
+                  i
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Indeed India Account</h3>
+                  <p className="text-xs text-slate-400">Easily Apply & Quick Matching</p>
+                </div>
+              </div>
+
+              <span
+                className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${
+                  indeed?.status === 'CONNECTED'
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                    : 'bg-slate-800 text-slate-400 border-slate-700'
+                }`}
+              >
+                {indeed?.status || 'NOT CONNECTED'}
+              </span>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Scans Indian tech and 100% remote roles on Indeed and auto-applies to Easily Apply postings.
+            </p>
+
+            <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-400 space-y-1.5 mt-4">
+              <div className="flex justify-between">
+                <span>Auth Method:</span>
+                <span className="text-slate-200 font-medium">{indeed?.authType || 'Email & Password / Session Cookie'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Last Sync:</span>
+                <span className="text-slate-200 font-medium">
+                  {indeed?.lastSyncAt ? new Date(indeed.lastSyncAt).toLocaleTimeString() : 'Ready'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Security:</span>
+                <span className="text-emerald-400 font-medium flex items-center">
+                  <Lock className="w-3 h-3 mr-1" /> AES-256-GCM Encrypted
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-5 mt-4 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2">
+            <button
+              onClick={() => handleTestConnection('INDEED')}
+              disabled={testingPlatform === 'INDEED'}
+              className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-indigo-300 hover:text-white font-bold text-xs rounded-xl border border-slate-700 flex items-center space-x-1.5 transition disabled:opacity-50"
+              title="Test connection with current saved credentials"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${testingPlatform === 'INDEED' ? 'animate-spin text-indigo-400' : ''}`} />
+              <span>{testingPlatform === 'INDEED' ? 'Testing...' : 'Test Connection'}</span>
+            </button>
+            <button
+              onClick={() => {
+                setConnectingPlatform('INDEED');
+                setAuthType('CREDENTIALS');
+              }}
+              className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow transition"
+            >
+              {indeed?.status === 'CONNECTED' ? 'Change / Update Indeed Creds' : 'Enter Indeed Credentials'}
+            </button>
+            {indeed?.status === 'CONNECTED' && (
+              <button
+                onClick={() => handleDisconnect('INDEED')}
                 className="px-3 py-2 text-xs text-rose-400 hover:bg-rose-500/10 rounded-xl transition"
               >
                 Disconnect

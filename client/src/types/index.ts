@@ -46,7 +46,7 @@ export interface JobPreference {
 
 export interface DiscoveredJob {
   id: string;
-  source: 'LINKEDIN' | 'NAUKRI' | 'ATS_GREENHOUSE' | 'ATS_LEVER' | 'ATS_WORKDAY' | 'DIRECT';
+  source: 'LINKEDIN' | 'NAUKRI' | 'INDEED' | 'ATS_GREENHOUSE' | 'ATS_LEVER' | 'ATS_WORKDAY' | 'DIRECT';
   externalJobId: string;
   title: string;
   company: string;
@@ -102,7 +102,7 @@ export interface Application {
 
 export interface IntegrationAccount {
   id: string;
-  platform: 'LINKEDIN' | 'NAUKRI' | 'ATS_PORTAL';
+  platform: 'LINKEDIN' | 'NAUKRI' | 'INDEED' | 'ATS_PORTAL';
   authType: string;
   status: 'CONNECTED' | 'EXPIRED' | 'ERROR' | 'DISCONNECTED';
   lastSyncAt: string | null;

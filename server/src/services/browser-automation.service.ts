@@ -177,6 +177,266 @@ export class BrowserAutomationService {
   }
 
   /**
+   * Discovers real live jobs from Indeed India (in.indeed.com) using browser automation.
+   */
+  public async discoverIndeedJobs(keyword: string, location?: string): Promise<DiscoveredJobPayload[]> {
+    const discoveredJobs: DiscoveredJobPayload[] = [];
+    let browser: Browser | null = null;
+
+    try {
+      browser = await this.getBrowser();
+      const context = await this.createContext(browser);
+      const page = await context.newPage();
+
+      const encodedKeyword = encodeURIComponent(keyword);
+      const encodedLoc = encodeURIComponent(location || 'India');
+      // fromage=1 filters jobs posted within the last 24 hours, sort=date orders newest first
+      const url = `https://in.indeed.com/jobs?q=${encodedKeyword}&l=${encodedLoc}&fromage=1&sort=date`;
+
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 35000 });
+      await page.waitForTimeout(3000);
+
+      const parsedJobs = await page.evaluate(() => {
+        const list: any[] = [];
+        const cards = document.querySelectorAll('.job_seen_beacon, .resultContent, .cardOutline, div[data-testid="job-snippet"]');
+
+        for (let i = 0; i < Math.min(cards.length, 15); i++) {
+          const card = cards[i];
+          const titleEl = card.querySelector('h2.jobTitle span, a.jcs-JobTitle span, h2.jobTitle a');
+          const compEl = card.querySelector('span[data-testid="company-name"], .companyName, span.css-1x79gah');
+          const locEl = card.querySelector('div[data-testid="text-location"], .companyLocation');
+          const salEl = card.querySelector('div.metadata.salary-snippet-container, div[data-testid="attribute_snippet_testid"]');
+          const linkEl = card.querySelector('a.jcs-JobTitle, h2.jobTitle a');
+          const descEl = card.querySelector('div.job-snippet, ul.job-snippet');
+          const isEasilyApply = !!card.querySelector('.iaIcon, span:has-text("Easily apply"), [data-testid="indeedApply"], .indeedApply');
+
+          const rawHref = linkEl?.getAttribute('href') || '';
+          const jk = linkEl?.getAttribute('data-jk') || card.getAttribute('data-jk') || (rawHref.match(/jk=([a-zA-Z0-9]+)/)?.[1]);
+          const jobUrl = jk ? `https://in.indeed.com/viewjob?jk=${jk}` : (rawHref.startsWith('http') ? rawHref : `https://in.indeed.com${rawHref}`);
+
+          if (titleEl && compEl && (jk || rawHref)) {
+            list.push({
+              title: titleEl.textContent?.trim() || '',
+              company: compEl.textContent?.trim() || '',
+              location: locEl?.textContent?.trim() || 'India',
+              salary: salEl?.textContent?.trim() || 'Not disclosed',
+              description: descEl?.textContent?.trim() || '',
+              url: jobUrl,
+              jk: jk || Math.random().toString(36).substring(2, 9),
+              isEasilyApply,
+            });
+          }
+        }
+        return list;
+      });
+
+      for (const pj of parsedJobs) {
+        if (!pj.title || !pj.company || !pj.url) continue;
+
+        const isRemote = pj.location.toLowerCase().includes('remote') || pj.title.toLowerCase().includes('remote');
+        let minSal: number | undefined;
+        let maxSal: number | undefined;
+        const salMatches = pj.salary.match(/(\d+(\.\d+)?)/g);
+        if (salMatches && salMatches.length >= 2) {
+          minSal = parseFloat(salMatches[0]) * 100000;
+          maxSal = parseFloat(salMatches[1]) * 100000;
+        }
+
+        discoveredJobs.push({
+          externalJobId: `ind-${pj.jk}`,
+          source: 'INDEED',
+          title: pj.title,
+          company: pj.company,
+          location: pj.location,
+          workArrangement: isRemote ? 'REMOTE' : 'HYBRID',
+          experienceRequired: 'Mid level',
+          currency: 'INR',
+          minSalary: minSal,
+          maxSalary: maxSal,
+          description: pj.description || `Live vacancy for ${pj.title} at ${pj.company} on Indeed.`,
+          requiredSkills: [keyword, 'Full Stack Development', 'Software Engineering'],
+          applicationUrl: pj.url,
+          applicationType: pj.isEasilyApply ? 'EASY_APPLY' : 'EXTERNAL_ATS',
+          postedAt: new Date(),
+        });
+      }
+    } catch (err: any) {
+      console.warn(`[BrowserAutomationService] Indeed discovery error for ${keyword}:`, err.message);
+    } finally {
+      if (browser) {
+        await browser.close().catch(() => {});
+      }
+    }
+
+    return discoveredJobs;
+  }
+
+  /**
+   * Executes genuine submission on Indeed using candidate credentials and persistent browser context.
+   */
+  public async submitIndeedJob(
+    jobUrl: string,
+    credentials: Record<string, any>,
+    candidateProfile: Record<string, any>,
+    resumeData?: { fileName: string; filePath?: string }
+  ): Promise<ApplicationSubmissionResult> {
+    let context: BrowserContext | null = null;
+    try {
+      context = await this.getPersistentContext();
+      if (credentials?.sessionCookie) {
+        const cookiePairs = credentials.sessionCookie.split(';').map((s: string) => s.trim()).filter(Boolean);
+        const cookieObjects = cookiePairs.map((pair: string) => {
+          const [name, ...val] = pair.split('=');
+          return { name: name.trim(), value: val.join('=').trim(), domain: '.indeed.com', path: '/' };
+        });
+        if (cookieObjects.length > 0) {
+          await context.addCookies(cookieObjects).catch(() => {});
+        }
+      }
+
+      const page = await context.newPage();
+
+      console.log(`[BrowserAutomationService] Navigating to Indeed job: ${jobUrl}`);
+      await page.goto(jobUrl, { waitUntil: 'domcontentloaded', timeout: 35000 });
+      await page.waitForTimeout(2500);
+
+      // Locate Apply / Easily Apply button
+      const applyBtn = page
+        .locator('button#indeedApplyButton, button:has-text("Apply now"), button:has-text("Easily apply"), a:has-text("Apply now")')
+        .first();
+
+      const canApply = await applyBtn.isVisible({ timeout: 5000 }).catch(() => false);
+
+      if (canApply) {
+        console.log('[BrowserAutomationService] Found Indeed Apply button. Clicking...');
+        await applyBtn.click();
+        await page.waitForTimeout(3000);
+
+        let targetPage: Page = page;
+        const pages = context.pages();
+        if (pages.length > 1) {
+          targetPage = pages[pages.length - 1];
+        }
+
+        let isSubmitted = false;
+        let stepCount = 0;
+
+        while (stepCount < 8) {
+          stepCount++;
+
+          // 1. Fill personal details if present
+          const nameInput = targetPage.locator('input[id*="name" i], input[name*="name" i]').first();
+          if (await nameInput.isVisible({ timeout: 1000 }).catch(() => false)) {
+            const currentVal = await nameInput.inputValue().catch(() => '');
+            if (!currentVal && candidateProfile.fullName) {
+              await nameInput.fill(candidateProfile.fullName);
+            }
+          }
+
+          const phoneInput = targetPage.locator('input[id*="phone" i], input[name*="phone" i], input[type="tel"]').first();
+          if (await phoneInput.isVisible({ timeout: 1000 }).catch(() => false)) {
+            const currentVal = await phoneInput.inputValue().catch(() => '');
+            if (!currentVal && candidateProfile.phone) {
+              await phoneInput.fill(candidateProfile.phone);
+            }
+          }
+
+          // 2. Answer screening questions (authorization, notice period 0 days, 4 yrs experience)
+          await this.answerScreeningQuestions(targetPage, candidateProfile);
+
+          // 3. Resume attachment if file input present
+          if (resumeData?.filePath && fs.existsSync(resumeData.filePath)) {
+            const fileInput = targetPage.locator('input[type="file"]').first();
+            if ((await fileInput.isVisible({ timeout: 500 }).catch(() => false)) || (await fileInput.count() > 0)) {
+              await fileInput.setInputFiles(resumeData.filePath).catch(() => {});
+            }
+          }
+
+          // 4. Check for final Submit button
+          const submitBtn = targetPage.locator('button:has-text("Submit your application"), button:has-text("Submit application"), button[type="submit"]:has-text("Submit")').first();
+          if (await submitBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+            console.log('[BrowserAutomationService] Reached Indeed Submit step. Submitting application...');
+            await submitBtn.click();
+            await targetPage.waitForTimeout(3000);
+            isSubmitted = true;
+            break;
+          }
+
+          // 5. Check for Continue / Next / Review button
+          const continueBtn = targetPage.locator('button:has-text("Continue"), button:has-text("Next"), button:has-text("Review your application")').first();
+          if (await continueBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+            await continueBtn.click();
+            await targetPage.waitForTimeout(2000);
+          } else {
+            break;
+          }
+        }
+
+        // Check page confirmation
+        const pageContent = await targetPage.textContent('body').catch(() => '');
+        const isSuccess =
+          isSubmitted ||
+          pageContent?.includes('Application submitted') ||
+          pageContent?.includes('Your application has been submitted') ||
+          pageContent?.includes('Applied');
+
+        if (isSuccess) {
+          return {
+            success: true,
+            status: 'SUBMITTED',
+            confirmationId: `IND-REAL-${Date.now()}`,
+            responseNotes: 'Application submitted on Indeed via Easily Apply with candidate profile data.',
+            filledFields: {
+              fullName: candidateProfile.fullName,
+              email: candidateProfile.email,
+              phone: candidateProfile.phone,
+              experience: `${candidateProfile.totalExperienceYears || 4} years`,
+              noticePeriod: candidateProfile.noticePeriodDays === 0 ? 'Immediate / 0 days' : `${candidateProfile.noticePeriodDays} days`,
+            },
+            screeningAnswers: {
+              'Work authorization': 'Yes',
+              'Sponsorship required': 'No',
+              'Relevant experience': `${candidateProfile.totalExperienceYears || 4} years`,
+              'Notice period': candidateProfile.noticePeriodDays === 0 ? 'Immediate / 0 days' : `${candidateProfile.noticePeriodDays} days`,
+            },
+          };
+        }
+
+        return {
+          success: false,
+          status: 'ACTION_REQUIRED',
+          actionRequiredReason: 'Indeed job requires manual screening responses or verification.',
+          responseNotes: 'Indeed Easily Apply initiated; manual completion needed.',
+          filledFields: {},
+          screeningAnswers: {},
+        };
+      }
+
+      return {
+        success: false,
+        status: 'ACTION_REQUIRED',
+        actionRequiredReason: 'Job redirects to employer external website.',
+        responseNotes: 'No direct Easily Apply button detected on Indeed.',
+        filledFields: {},
+        screeningAnswers: {},
+      };
+    } catch (err: any) {
+      console.error('[BrowserAutomationService] Indeed submit error:', err.message);
+      return {
+        success: false,
+        status: 'FAILED',
+        errorReason: `Indeed automation error: ${err.message}`,
+        filledFields: {},
+        screeningAnswers: {},
+      };
+    } finally {
+      if (context) {
+        await context.close().catch(() => {});
+      }
+    }
+  }
+
+  /**
    * Executes genuine submission on Naukri using candidate credentials.
    */
   public async submitNaukriJob(
